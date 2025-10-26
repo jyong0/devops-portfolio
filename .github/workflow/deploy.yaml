@@ -1,0 +1,45 @@
+name: CI/CD Deploy to GKE
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up gcloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Authenticate to GCP via OIDC
+        uses: google-github-actions/auth@v2
+        with:
+          token_format: access_token
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker asia-northeast3-docker.pkg.dev --quiet
+
+      - name: Build & Push Docker Image
+        run: |
+          export IMAGE_URI="asia-northeast3-docker.pkg.dev/storied-reserve-473208-t1/app/app:latest"
+          docker build -t $IMAGE_URI .
+          docker push $IMAGE_URI
+
+      - name: Get GKE credentials
+        run: gcloud container clusters get-credentials devops-gke --region asia-northeast3 --project storied-reserve-473208-t1
+
+      - name: Helm upgrade
+        run: |
+          helm upgrade --install app charts/app \
+          --set image.repository="asia-northeast3-docker.pkg.dev/storied-reserve-473208-t1/app/app" \
+          --set image.tag="latest"
