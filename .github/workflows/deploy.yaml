@@ -26,6 +26,10 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
+      - name: Install gke-gcloud-auth-plugin   # 🔥 추가된 부분
+        run: |
+          sudo apt-get install google-cloud-sdk-gke-gcloud-auth-plugin
+
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker asia-northeast3-docker.pkg.dev --quiet
 
