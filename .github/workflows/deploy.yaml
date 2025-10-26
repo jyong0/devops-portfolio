@@ -31,7 +31,7 @@ jobs:
 
       - name: Build & Push Docker Image
         run: |
-          export IMAGE_URI="asia-northeast3-docker.pkg.dev/storied-reserve-473208-t1/app/app:latest"
+          export IMAGE_URI="asia-northeast3-docker.pkg.dev/storied-reserve-473208-t1/devops-repo/app:${{ github.sha }}"
           docker build -t $IMAGE_URI .
           docker push $IMAGE_URI
 
@@ -41,5 +41,5 @@ jobs:
       - name: Helm upgrade
         run: |
           helm upgrade --install app charts/app \
-          --set image.repository="asia-northeast3-docker.pkg.dev/storied-reserve-473208-t1/app/app" \
-          --set image.tag="latest"
+          --set image.repository="asia-northeast3-docker.pkg.dev/storied-reserve-473208-t1/devops-repo/app" \
+          --set image.tag="${{ github.sha }}"

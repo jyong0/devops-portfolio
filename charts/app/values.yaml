@@ -1,8 +1,8 @@
 replicaCount: 2
 
 image:
-  repository: asia-northeast3-docker.pkg.dev/storied-reserve-473208-t1/devops-repo/devops-app
-  tag: "secure-v4"
+  repository: asia-northeast3-docker.pkg.dev/storied-reserve-473208-t1/devops-repo/app
+  tag: "latest" # 무시됨 (Helm upgrade에서 Override됨)
   pullPolicy: IfNotPresent
 
 service:
