@@ -49,6 +49,4 @@ jobs:
           helm upgrade --install app charts/app \
           --atomic --wait --timeout 5m \
           --set image.repository="asia-northeast3-docker.pkg.dev/storied-reserve-473208-t1/devops-repo/app" \
-          --set image.tag="DOES-NOT-EXIST" \
-          --set image.pullPolicy="Always"
-          # --set image.tag="${{ github.sha }}"
+          --set image.tag="${{ github.sha }}"
