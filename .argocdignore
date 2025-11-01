@@ -1,0 +1,11 @@
+# Terraform local cache
+infra/.terraform/
+infra/terraform.tfstate
+infra/terraform.tfstate.backup
+
+# Go build output
+bin/
+dist/
+
+# Docker build context artifacts
+**/node_modules
