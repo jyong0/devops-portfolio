@@ -1,4 +1,4 @@
-name: CI/CD Deploy to GKE via ArgoCD (GitOps)
+name: CI/CD Deploy via GitOps
 
 on:
   push:
@@ -23,10 +23,6 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
-      - name: Install gke-gcloud-auth-plugin
-        run: |
-          gcloud components install gke-gcloud-auth-plugin --quiet
-
       - name: Configure Docker for Artifact Registry
         run: |
           gcloud auth configure-docker asia-northeast3-docker.pkg.dev --quiet
@@ -37,11 +33,11 @@ jobs:
           docker build -t $IMAGE_URI .
           docker push $IMAGE_URI
 
-      - name: Update image tag in Helm values (GitOps)
+      - name: Update Helm values (GitOps)
         run: |
           sed -i "s/tag:.*/tag: \"${{ github.sha }}\"/" charts/app/values.yaml
 
-      - name: Commit & Push updated values
+      - name: Commit & Push Update
         run: |
           git config user.email "actions@github.com"
           git config user.name "GitHub Actions"
