@@ -1,4 +1,4 @@
-name: CI/CD Deploy to GKE
+name: CI/CD Deploy to GKE via ArgoCD (GitOps)
 
 on:
   push:
@@ -9,17 +9,14 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: read
+      contents: write
       id-token: write
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Set up gcloud SDK
-        uses: google-github-actions/setup-gcloud@v2
-
-      - name: Authenticate to GCP via OIDC
+      - name: Authenticate to GCP (Workload Identity)
         uses: google-github-actions/auth@v2
         with:
           token_format: access_token
@@ -36,17 +33,18 @@ jobs:
 
       - name: Build & Push Docker Image
         run: |
-          export IMAGE_URI="asia-northeast3-docker.pkg.dev/storied-reserve-473208-t1/devops-repo/app:${{ github.sha }}"
+          IMAGE_URI="asia-northeast3-docker.pkg.dev/storied-reserve-473208-t1/devops-repo/app:${{ github.sha }}"
           docker build -t $IMAGE_URI .
           docker push $IMAGE_URI
 
-      - name: Get GKE credentials
+      - name: Update image tag in Helm values (GitOps)
         run: |
-          gcloud container clusters get-credentials devops-gke --region asia-northeast3 --project storied-reserve-473208-t1
+          sed -i "s/tag:.*/tag: \"${{ github.sha }}\"/" charts/app/values.yaml
 
-      - name: Helm upgrade
+      - name: Commit & Push updated values
         run: |
-          helm upgrade --install app charts/app \
-          --atomic --wait --timeout 5m \
-          --set image.repository="asia-northeast3-docker.pkg.dev/storied-reserve-473208-t1/devops-repo/app" \
-          --set image.tag="${{ github.sha }}"
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+          git add charts/app/values.yaml
+          git commit -m "Update app image to ${{ github.sha }}" || echo "No changes to commit"
+          git push
