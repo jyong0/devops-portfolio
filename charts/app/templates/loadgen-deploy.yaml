@@ -1,0 +1,31 @@
+# # loadgen-deploy.yaml
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: load-generator
+# spec:
+#   replicas: 5   # 필요 시 10~20까지 올리기
+#   selector:
+#     matchLabels:
+#       app: load-generator
+#   template:
+#     metadata:
+#       labels:
+#         app: load-generator
+#     spec:
+#       containers:
+#         - name: loadgen
+#           image: busybox:1.36
+#           command: ["/bin/sh","-c"]
+#           args:
+#             - >
+#               while true; do
+#                 wget -q -O- http://app.default.svc.cluster.local:8080/ > /dev/null || true;
+#               done
+#           resources:
+#             requests:
+#               cpu: 20m
+#               memory: 32Mi
+#             limits:
+#               cpu: 100m
+#               memory: 64Mi
