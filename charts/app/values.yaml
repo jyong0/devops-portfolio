@@ -2,7 +2,7 @@ replicaCount: 2
 
 image:
   repository: asia-northeast3-docker.pkg.dev/storied-reserve-473208-t1/devops-repo/app
-  tag: "fcf5d258a9078868658684e44a3f52e4519d970c"
+  tag: "9a45843e446974ace5ca44b13496eec922b2b956"
   pullPolicy: IfNotPresent
 
 service:
