@@ -2,7 +2,7 @@ replicaCount: 2
 
 image:
   repository: asia-northeast3-docker.pkg.dev/storied-reserve-473208-t1/devops-repo/app
-  tag: "PLACEHOLDER"
+  tag: "b4f41e1ce65c3fda7284e246280df638bf53ee0f"
   pullPolicy: IfNotPresent
 
 service:
