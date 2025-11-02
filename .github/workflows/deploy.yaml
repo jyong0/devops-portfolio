@@ -32,15 +32,3 @@ jobs:
           IMAGE_URI="asia-northeast3-docker.pkg.dev/storied-reserve-473208-t1/devops-repo/app:${{ github.sha }}"
           docker build -t $IMAGE_URI .
           docker push $IMAGE_URI
-
-      - name: Update Helm values (GitOps)
-        run: |
-          sed -i "s/tag:.*/tag: \"${{ github.sha }}\"/" charts/app/values.yaml
-
-      - name: Commit & Push Update
-        run: |
-          git config user.email "actions@github.com"
-          git config user.name "GitHub Actions"
-          git add charts/app/values.yaml
-          git commit -m "Update app image to ${{ github.sha }}" || echo "No changes to commit"
-          git push
