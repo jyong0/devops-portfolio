@@ -1,10 +1,15 @@
 replicaCount: 2
 
 image:
-  repository: asia-northeast3-docker.pkg.dev/storied-reserve-473208-t1/devops-repo/app
+  repository: comrry/devops
   tag: ""
   pullPolicy: IfNotPresent
 
+metadata:
+  annotations:
+    argocd-image-updater.argoproj.io/image-list: app=docker.io/USERNAME/app
+    argocd-image-updater.argoproj.io/update-strategy: latest
+    
 service:
   type: ClusterIP
   port: 8080

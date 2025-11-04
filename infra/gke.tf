@@ -36,23 +36,30 @@ resource "google_container_node_pool" "nodes" {
 
   node_count = 1
 
-  node_config {
-    machine_type = "e2-small"
-    disk_size_gb = 20
-    image_type   = "COS_CONTAINERD"
+node_config {
+  machine_type = "e2-small"
+  disk_size_gb = 20
+  image_type   = "COS_CONTAINERD"
 
-    oauth_scopes = [
-      "https://www.googleapis.com/auth/cloud-platform"
-    ]
+  # ✅ Workload Identity 권한 전달 (cloud-platform scope 반드시 필요)
+  oauth_scopes = [
+    "https://www.googleapis.com/auth/cloud-platform"
+  ]
 
-    labels = {
-      role = "app"
-    }
-
-    metadata = {
-      disable-legacy-endpoints = "true"
-    }
+  # ✅ SA 토큰 자동 마운트 활성화
+  workload_metadata_config {
+    mode = "GKE_METADATA"
   }
+
+  labels = {
+    role = "app"
+  }
+
+  metadata = {
+    disable-legacy-endpoints = "true"
+  }
+}
+
 
   autoscaling {
     min_node_count = 1

@@ -10,25 +10,32 @@ jobs:
 
     permissions:
       contents: write
-      id-token: write
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Authenticate to GCP (Workload Identity)
-        uses: google-github-actions/auth@v2
+      # ✅ Docker Hub 로그인
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
         with:
-          token_format: access_token
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Configure Docker for Artifact Registry
+      # ✅ Build & Push
+      - name: Build and Push Image
         run: |
-          gcloud auth configure-docker asia-northeast3-docker.pkg.dev --quiet
+          IMAGE="docker.io/${{ secrets.DOCKERHUB_USERNAME }}/app"
+          TAG="${{ github.sha }}"
 
-      - name: Build & Push Docker Image
+          docker build -t $IMAGE:$TAG .
+          docker push $IMAGE:$TAG
+
+      # ✅ (Optional) tag latest도 같이 유지하고 싶을 경우
+      - name: Tag latest
+        if: github.ref == 'refs/heads/main'
         run: |
-          IMAGE_URI="asia-northeast3-docker.pkg.dev/storied-reserve-473208-t1/devops-repo/app:${{ github.sha }}"
-          docker build -t $IMAGE_URI .
-          docker push $IMAGE_URI
+          IMAGE="docker.io/${{ secrets.DOCKERHUB_USERNAME }}/app"
+          
+          docker tag $IMAGE:${{ github.sha }} $IMAGE:latest
+          docker push $IMAGE:latest
