@@ -2,7 +2,7 @@ replicaCount: 2
 
 image:
   repository: docker.io/comrry/devops
-  tag: "latest"
+  tag: ""
   pullPolicy: IfNotPresent
 
 service:

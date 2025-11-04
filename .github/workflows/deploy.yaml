@@ -25,7 +25,7 @@ jobs:
       # ✅ Build & Push
       - name: Build and Push Image
         run: |
-          IMAGE="docker.io/${{ secrets.DOCKERHUB_USERNAME }}/app"
+          IMAGE="docker.io/${{ secrets.DOCKERHUB_USERNAME }}/devops"
           TAG="${{ github.sha }}"
 
           docker build -t $IMAGE:$TAG .
@@ -35,7 +35,7 @@ jobs:
       - name: Tag latest
         if: github.ref == 'refs/heads/main'
         run: |
-          IMAGE="docker.io/${{ secrets.DOCKERHUB_USERNAME }}/app"
+          IMAGE="docker.io/${{ secrets.DOCKERHUB_USERNAME }}/devops"
           
           docker tag $IMAGE:${{ github.sha }} $IMAGE:latest
           docker push $IMAGE:latest
