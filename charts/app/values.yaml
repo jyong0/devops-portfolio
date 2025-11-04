@@ -2,7 +2,7 @@ replicaCount: 2
 
 image:
   repository: docker.io/comrry/devops
-  tag: ""
+  tag: "latest"   # ← **중요: tag를 비워두면 Image Updater가 자동으로 업데이트**
   pullPolicy: IfNotPresent
 
 service:

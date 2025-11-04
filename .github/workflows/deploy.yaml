@@ -31,11 +31,10 @@ jobs:
           docker build -t $IMAGE:$TAG .
           docker push $IMAGE:$TAG
 
-      # ✅ (Optional) tag latest도 같이 유지하고 싶을 경우
-      - name: Tag latest
-        if: github.ref == 'refs/heads/main'
-        run: |
-          IMAGE="docker.io/${{ secrets.DOCKERHUB_USERNAME }}/devops"
+      # - name: Tag latest
+      #   if: github.ref == 'refs/heads/main'
+      #   run: |
+      #     IMAGE="docker.io/${{ secrets.DOCKERHUB_USERNAME }}/devops"
           
-          docker tag $IMAGE:${{ github.sha }} $IMAGE:latest
-          docker push $IMAGE:latest
+      #     docker tag $IMAGE:${{ github.sha }} $IMAGE:latest
+      #     docker push $IMAGE:latest

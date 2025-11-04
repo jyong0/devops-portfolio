@@ -7,7 +7,6 @@ data:
   registries.conf: |
     registries:
       - name: dockerhub
-        # Docker Hub 인증이 필요할 때는 HTTPS URL 고정
         api_url: https://registry-1.docker.io
         prefix: docker.io
         default: true
