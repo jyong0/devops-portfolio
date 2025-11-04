@@ -1,15 +1,10 @@
 replicaCount: 2
 
 image:
-  repository: comrry/devops
-  tag: ""
+  repository: docker.io/comrry/devops
+  tag: "latest"
   pullPolicy: IfNotPresent
 
-metadata:
-  annotations:
-    argocd-image-updater.argoproj.io/image-list: app=docker.io/USERNAME/app
-    argocd-image-updater.argoproj.io/update-strategy: latest
-    
 service:
   type: ClusterIP
   port: 8080

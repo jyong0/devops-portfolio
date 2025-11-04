@@ -3,18 +3,29 @@ kind: Application
 metadata:
   name: app
   namespace: argocd
+  annotations:
+    # Argo CD Image Updater - Docker Hub 이미지 자동 최신 태그 추적
+    argocd-image-updater.argoproj.io/image-list: app=docker.io/comrry/devops
+    argocd-image-updater.argoproj.io/update-strategy: latest
 spec:
   project: default
+
   source:
     repoURL: https://github.com/jyong0/devops-portfolio.git
     targetRevision: main
     path: charts/app
+
+    helm:
+      values: |
+        image:
+          repository: docker.io/comrry/devops
+          tag: "latest"
+
   destination:
     server: https://kubernetes.default.svc
     namespace: default
+
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
-    syncOptions:
-      - CreateNamespace=true
