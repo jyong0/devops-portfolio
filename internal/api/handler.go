@@ -17,11 +17,11 @@ func NewHandler(userService *service.UserService) *Handler {
 }
 
 func (h *Handler) RootCheck(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"status": "ok v4"})
+	c.JSON(http.StatusOK, gin.H{"status": "ok v5"})
 }
 
 func (h *Handler) Health(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"status": "ok v4"})
+	c.JSON(http.StatusOK, gin.H{"status": "ok v5"})
 }
 
 func (h *Handler) CreateUser(c *gin.Context) {
