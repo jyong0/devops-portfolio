@@ -4,7 +4,9 @@ resource "google_project_service" "services" {
     "compute.googleapis.com",
     "container.googleapis.com",
     "iam.googleapis.com",
-    "artifactregistry.googleapis.com"
+    "artifactregistry.googleapis.com",
+    "sqladmin.googleapis.com",
+    "servicenetworking.googleapis.com"
   ])
   project                    = var.project_id
   service                    = each.key

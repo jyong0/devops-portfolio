@@ -1,6 +1,7 @@
 variable "project_id" {
   description = "GCP Project ID"
   type        = string
+  default     = "storied-reserve-473208-t1"
 }
 
 variable "region" {
@@ -55,4 +56,10 @@ variable "machine_type" {
   description = "Node machine type"
   type        = string
   default     = "e2-medium"
+}
+
+variable "db_password" {
+  type        = string
+  description = "Password for PostgreSQL user"
+  sensitive   = true
 }

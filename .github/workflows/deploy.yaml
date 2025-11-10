@@ -22,7 +22,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # ✅ Build & Push
+      # ✅ Build & Push (SHA + latest)
       - name: Build and Push Image
         run: |
           IMAGE="docker.io/${{ secrets.DOCKERHUB_USERNAME }}/devops"
@@ -31,10 +31,8 @@ jobs:
           docker build -t $IMAGE:$TAG .
           docker push $IMAGE:$TAG
 
-      # - name: Tag latest
-      #   if: github.ref == 'refs/heads/main'
-      #   run: |
-      #     IMAGE="docker.io/${{ secrets.DOCKERHUB_USERNAME }}/devops"
-          
-      #     docker tag $IMAGE:${{ github.sha }} $IMAGE:latest
-      #     docker push $IMAGE:latest
+          # ✅ latest 태그 추가 (Argo CD Image Updater는 latest를 추적해야 자동 업데이트함)
+          docker tag $IMAGE:$TAG $IMAGE:latest
+          docker push $IMAGE:latest
+
+      # ✅ Git commit 없이도 ArgoCD가 자동 Sync → 별도 작업 불필요
