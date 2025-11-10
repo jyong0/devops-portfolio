@@ -1,0 +1,21 @@
+# # db-test.yaml
+# apiVersion: v1
+# kind: Pod
+# metadata:
+#   name: db-test
+#   namespace: default
+# spec:
+#   serviceAccountName: app-db
+#   restartPolicy: Never
+#   containers:
+#   - name: proxy
+#     image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.10.1
+#     args:
+#       - "--instance=storied-reserve-473208-t1:asia-northeast3:devops-postgres"
+#       - "--address=0.0.0.0"
+#       - "--port=5432"
+#     ports:
+#       - containerPort: 5432
+#   - name: psql
+#     image: postgres:16
+#     command: ["bash","-lc","sleep infinity"]

@@ -8,9 +8,6 @@ spec:
   replicas: {{ .Values.replicaCount }}
   strategy:
     type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 0
-      maxSurge: 1
   selector:
     matchLabels:
       {{- include "app.selectorLabels" . | nindent 6 }}
@@ -28,21 +25,32 @@ spec:
           ports:
             - containerPort: {{ .Values.service.port }}
           env:
-            {{- range $key, $value := .Values.env }}
-            - name: {{ $key }}
-              value: "{{ $value }}"
-            {{- end }}
-          livenessProbe:
-            httpGet:
-              path: /healthz
-              port: {{ .Values.service.port }}
-            initialDelaySeconds: 5
-            periodSeconds: 10
-          readinessProbe:
-            httpGet:
-              path: /healthz
-              port: {{ .Values.service.port }}
-            initialDelaySeconds: 3
-            periodSeconds: 5
+            - name: APP_PORT
+              value: "{{ .Values.env.APP_PORT }}"
+            - name: DB_HOST
+              value: "{{ .Values.env.DB_HOST }}"
+            - name: DB_PORT
+              value: "{{ .Values.env.DB_PORT }}"
+            - name: DB_USER
+              value: "{{ .Values.env.DB_USER }}"
+            - name: DB_NAME
+              value: "{{ .Values.env.DB_NAME }}"
+            - name: REDIS_ADDR
+              value: "{{ .Values.env.REDIS_ADDR }}"
+            - name: DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.env.DB_PASS_FROM_SECRET }}
+                  key: password
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+
+        # ✅ Cloud SQL Proxy Sidecar (DB 접속 담당)
+        - name: cloud-sql-proxy
+          image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.10.1
+          args:
+            - "--instance={{ .Values.db.instanceConnectionName }}"
+            - "--address=0.0.0.0"
+            - "--port=5432"
+          securityContext:
+            runAsNonRoot: true
