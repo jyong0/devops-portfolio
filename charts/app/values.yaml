@@ -1,7 +1,7 @@
 replicaCount: 2
 
 migration:
-  enabled: false
+  enabled: true
 
 image:
   repository: docker.io/comrry/devops
