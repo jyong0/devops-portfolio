@@ -2,34 +2,39 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  annotations:
-    argocd.argoproj.io/hook: PreSync
-  name: {{ include "app.fullname" . }}-migration
+  name: app-migration
   labels:
-    app.kubernetes.io/name: {{ include "app.name" . }}
+    app.kubernetes.io/name: app
+    app.kubernetes.io/managed-by: Helm
 spec:
+  backoffLimit: 0
   template:
     spec:
-      serviceAccountName: app-db   # ✅ Cloud SQL Access SA
-      restartPolicy: OnFailure
+      restartPolicy: Never
+      serviceAccountName: app-db
       containers:
         - name: migrate
-          image: ghcr.io/pressly/goose:latest
-          workingDir: /migrations
-          command: ["goose"]
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          command: ["sh", "-c"]
           args:
-            - "-dir=/migrations"
-            - "postgres"
-            - "postgres://{{ .Values.db.user }}:{{ .Values.db.password }}@127.0.0.1:5432/{{ .Values.db.name }}?sslmode=disable"
-            - "up"
-          volumeMounts:
-            - name: migrations
-              mountPath: /migrations
-            - name: cloudsql-auth
-              mountPath: /cloudsql
+            - |
+              echo "Running migrations..."
+              psql "postgresql://$(DB_USER):$(DB_PASS)@127.0.0.1:5432/$(DB_NAME)" -f /migrations/*.sql
+          env:
+            - name: DB_USER
+              value: "{{ .Values.env.DB_USER }}"
+            - name: DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: app-db-secret
+                  key: password
+            - name: DB_NAME
+              value: "{{ .Values.env.DB_NAME }}"
       volumes:
         - name: migrations
           configMap:
-            name: {{ include "app.fullname" . }}-migrations
-        - name: cloudsql-auth
-          emptyDir: {}
+            name: app-migrations
+      volumeMounts:
+        - name: migrations
+          mountPath: /migrations
+{{- end }}
