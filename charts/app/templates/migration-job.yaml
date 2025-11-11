@@ -16,10 +16,9 @@ spec:
         - name: migrate
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           command: ["sh", "-c"]
-          args:
-            - |
-              echo "Running migrations..."
-              psql "postgresql://$(DB_USER):$(DB_PASS)@127.0.0.1:5432/$(DB_NAME)" -f /migrations/*.sql
+          args: |
+            echo "Running migrations..."
+            psql "postgresql://$(DB_USER):$(DB_PASS)@127.0.0.1:5432/$(DB_NAME)" -f /migrations/*.sql
           env:
             - name: DB_USER
               value: "{{ .Values.env.DB_USER }}"
@@ -30,11 +29,11 @@ spec:
                   key: password
             - name: DB_NAME
               value: "{{ .Values.env.DB_NAME }}"
+          volumeMounts:
+            - name: migrations
+              mountPath: /migrations
       volumes:
         - name: migrations
           configMap:
             name: app-migrations
-      volumeMounts:
-        - name: migrations
-          mountPath: /migrations
 {{- end }}
