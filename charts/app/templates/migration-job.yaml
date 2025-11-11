@@ -14,7 +14,7 @@ spec:
       serviceAccountName: app-db
       containers:
         - name: migrate
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: postgres:16-alpine
           command: ["sh", "-c"]
           args:
             - |
