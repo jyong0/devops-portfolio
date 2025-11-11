@@ -1,5 +1,8 @@
 replicaCount: 2
 
+migration:
+  enabled: false
+
 image:
   repository: docker.io/comrry/devops
   tag: "latest"
