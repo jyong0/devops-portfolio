@@ -1,0 +1,34 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+  name: {{ include "app.fullname" . }}-migration
+  labels:
+    app.kubernetes.io/name: {{ include "app.name" . }}
+spec:
+  template:
+    spec:
+      serviceAccountName: app-db   # ✅ Cloud SQL Access SA
+      restartPolicy: OnFailure
+      containers:
+        - name: migrate
+          image: ghcr.io/pressly/goose:latest
+          workingDir: /migrations
+          command: ["goose"]
+          args:
+            - "-dir=/migrations"
+            - "postgres"
+            - "postgres://{{ .Values.db.user }}:{{ .Values.db.password }}@127.0.0.1:5432/{{ .Values.db.name }}?sslmode=disable"
+            - "up"
+          volumeMounts:
+            - name: migrations
+              mountPath: /migrations
+            - name: cloudsql-auth
+              mountPath: /cloudsql
+      volumes:
+        - name: migrations
+          configMap:
+            name: {{ include "app.fullname" . }}-migrations
+        - name: cloudsql-auth
+          emptyDir: {}

@@ -13,6 +13,9 @@ ingress:
   enabled: false
 
 db:
+  user: "app"
+  name: "appdb"
+  password: ""
   instanceConnectionName: "storied-reserve-473208-t1:asia-northeast3:devops-postgres"
 
 projectId: "storied-reserve-473208-t1"
