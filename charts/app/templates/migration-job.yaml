@@ -12,6 +12,7 @@ spec:
     spec:
       restartPolicy: Never
       serviceAccountName: app-db
+
       containers:
         - name: migrate
           image: postgres:16-alpine
@@ -33,6 +34,17 @@ spec:
           volumeMounts:
             - name: migrations
               mountPath: /migrations
+
+        # ✅ Cloud SQL Proxy 사이드카 추가
+        - name: cloud-sql-proxy
+          image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.10.1
+          args:
+            - "{{ .Values.db.instanceConnectionName }}"
+            - "--private-ip"
+            - "--port=5432"
+          securityContext:
+            runAsNonRoot: true
+
       volumes:
         - name: migrations
           configMap:
