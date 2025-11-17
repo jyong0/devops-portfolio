@@ -38,11 +38,11 @@ spec:
         - name: cloud-sql-proxy
           image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.10.1
           args:
-            - "{{ .Values.db.instanceConnectionName }}"
             - "--auto-iam-authn"
             - "--private-ip"
             - "--port=5432"
             - "--address=0.0.0.0"
+            - "{{ .Values.db.instanceConnectionName }}"
           securityContext:
             runAsNonRoot: true
 
