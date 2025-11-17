@@ -15,6 +15,7 @@ spec:
     path: charts/app
 
     helm:
+      releaseName: app
       values: |
         image:
           repository: docker.io/comrry/devops
