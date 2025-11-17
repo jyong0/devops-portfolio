@@ -6,8 +6,10 @@ metadata:
   labels:
     app.kubernetes.io/name: {{ include "app.name" . }}
     app.kubernetes.io/managed-by: Helm
+
 spec:
   backoffLimit: 0
+
   template:
     spec:
       restartPolicy: Never
@@ -21,7 +23,6 @@ spec:
             - |
               echo "== Running migrations =="
 
-              # Find SQL files (busybox-safe glob handling)
               FILES=$(ls /migrations/*.sql 2>/dev/null)
 
               if [ -z "$FILES" ]; then
@@ -29,7 +30,6 @@ spec:
                 exit 1
               fi
 
-              # Run each migration file
               for f in $FILES; do
                 echo "Applying migration: $f"
                 export PGPASSWORD="$DB_PASS"
@@ -37,17 +37,15 @@ spec:
               done
 
               echo "== Migrations completed =="
-          
+
           env:
             - name: DB_USER
               value: "{{ .Values.env.DB_USER }}"
-
             - name: DB_PASS
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.env.DB_PASS_FROM_SECRET }}
                   key: password
-
             - name: DB_NAME
               value: "{{ .Values.env.DB_NAME }}"
 
