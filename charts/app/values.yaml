@@ -1,6 +1,7 @@
 replicaCount: 2
 
 migration:
+  jobName: "app-migration-v2"
   enabled: true
 
 image:
