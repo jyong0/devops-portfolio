@@ -4,7 +4,7 @@ kind: Job
 metadata:
   name: {{ .Values.migration.jobName | default "app-migration" }}
   labels:
-    app.kubernetes.io/name: app
+    app.kubernetes.io/name: {{ include "app.name" . }}
     app.kubernetes.io/managed-by: Helm
 spec:
   backoffLimit: 0
@@ -19,26 +19,38 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
-              echo "Running migrations..."
+              echo "== Running migrations =="
 
-              for f in /migrations/*.sql; do
+              # Find SQL files (busybox-safe glob handling)
+              FILES=$(ls /migrations/*.sql 2>/dev/null)
+
+              if [ -z "$FILES" ]; then
+                echo "❗ No migration files found in /migrations"
+                exit 1
+              fi
+
+              # Run each migration file
+              for f in $FILES; do
                 echo "Applying migration: $f"
                 export PGPASSWORD="$DB_PASS"
                 psql -h 127.0.0.1 -p 5432 -U "$DB_USER" -d "$DB_NAME" -f "$f"
               done
 
-              echo "Migrations completed."
-
+              echo "== Migrations completed =="
+          
           env:
             - name: DB_USER
               value: "{{ .Values.env.DB_USER }}"
+
             - name: DB_PASS
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.env.DB_PASS_FROM_SECRET }}
                   key: password
+
             - name: DB_NAME
               value: "{{ .Values.env.DB_NAME }}"
+
           volumeMounts:
             - name: migrations
               mountPath: /migrations
