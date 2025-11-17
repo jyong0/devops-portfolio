@@ -39,6 +39,7 @@ spec:
           image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.10.1
           args:
             - "{{ .Values.db.instanceConnectionName }}"   # ✅ 인스턴스 이름만
+            - "--auto-iam-authn"
             - "--private-ip"
             - "--port=5432"
             - "--address=0.0.0.0"                        # ✅ 중요: pod 내 모든 컨테이너에서 접근 가능하게
