@@ -21,6 +21,17 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
+              echo "== Waiting for Cloud SQL Proxy =="
+
+              # Wait until the proxy opens port 5432
+              until pg_isready -h 127.0.0.1 -p 5432 >/dev/null 2>&1; do
+                echo "Cloud SQL Proxy not ready, retrying..."
+                sleep 2
+              done
+
+              echo "== Cloud SQL Proxy is ready =="
+
+
               echo "== Running migrations =="
 
               FILES=$(ls /migrations/*.sql 2>/dev/null)
