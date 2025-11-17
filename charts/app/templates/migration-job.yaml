@@ -20,8 +20,7 @@ spec:
           args:
             - |
               echo "Running migrations..."
-              psql "postgresql://$(DB_USER):$(DB_PASS)@[::1]:5432/$(DB_NAME)" -f /migrations/*.sql
-            #   psql "postgresql://$(DB_USER):$(DB_PASS)@127.0.0.1:5432/$(DB_NAME)" -f /migrations/*.sql
+              psql "postgresql://$(DB_USER):$(DB_PASS)@127.0.0.1:5432/$(DB_NAME)" -f /migrations/*.sql
           env:
             - name: DB_USER
               value: "{{ .Values.env.DB_USER }}"
@@ -39,11 +38,11 @@ spec:
         - name: cloud-sql-proxy
           image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.10.1
           args:
+            - "{{ .Values.db.instanceConnectionName }}"
             - "--auto-iam-authn"
             - "--private-ip"
             - "--port=5432"
             - "--address=0.0.0.0"
-            - "{{ .Values.db.instanceConnectionName }}"
           securityContext:
             runAsNonRoot: true
 
