@@ -16,18 +16,26 @@ spec:
       containers:
         - name: migrate
           image: postgres:16-alpine
-          command: ["sh", "-c"]
+          command: ["/bin/sh", "-c"]
           args:
             - |
               echo "Running migrations..."
-              psql "host=localhost user=$(DB_USER) password=$(DB_PASS) dbname=$(DB_NAME)"
+
+              for f in /migrations/*.sql; do
+                echo "Applying migration: $f"
+                export PGPASSWORD="$DB_PASS"
+                psql -h 127.0.0.1 -p 5432 -U "$DB_USER" -d "$DB_NAME" -f "$f"
+              done
+
+              echo "Migrations completed."
+
           env:
             - name: DB_USER
               value: "{{ .Values.env.DB_USER }}"
             - name: DB_PASS
               valueFrom:
                 secretKeyRef:
-                  name: app-db-secret
+                  name: {{ .Values.env.DB_PASS_FROM_SECRET }}
                   key: password
             - name: DB_NAME
               value: "{{ .Values.env.DB_NAME }}"
@@ -49,5 +57,5 @@ spec:
       volumes:
         - name: migrations
           configMap:
-            name: app-migrations
+            name: {{ include "app.fullname" . }}-migrations
 {{- end }}
