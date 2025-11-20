@@ -12,6 +12,7 @@ metadata:
 
 spec:
   backoffLimit: 1
+
   template:
     spec:
       restartPolicy: Never
@@ -23,46 +24,43 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
-              echo "[INIT] Copying migrations..."
-              mkdir -p /work/migrations
-              cp -R /src/* /work/migrations/
+              echo "Copying migrations..."
+              mkdir -p /migrations
+              cp -R /src/* /migrations/
           volumeMounts:
             - name: migration-src
               mountPath: /src
             - name: migrations
-              mountPath: /work/migrations
+              mountPath: /migrations
 
       containers:
         - name: migrate
-          image: alpine:3.19
+          image: mattes/goose:latest
           command: ["/bin/sh", "-c"]
           args:
             - |
-              echo "== Installing goose =="
-              apk add --no-cache curl ca-certificates postgresql-client
-              curl -L https://github.com/pressly/goose/releases/download/v3.17.0/goose_linux_x86_64 -o /usr/local/bin/goose
-              chmod +x /usr/local/bin/goose
-
               echo "== Waiting for Cloud SQL Proxy =="
+
               until pg_isready -h 127.0.0.1 -p 5432 -U "{{ .Values.env.DB_USER }}"; do
-                echo "Proxy not ready..."
+                echo "Cloud SQL Proxy not ready, retrying..."
                 sleep 2
               done
 
-              echo "== Running migrations with Goose =="
+              echo "== Cloud SQL Proxy is ready =="
 
               export GOOSE_DRIVER=postgres
               export GOOSE_DBSTRING="host=127.0.0.1 user={{ .Values.env.DB_USER }} password=$DB_PASS dbname={{ .Values.env.DB_NAME }} sslmode=disable"
 
-              goose -dir /work/migrations up
+              echo "== Running migrations with goose =="
+              goose -dir /migrations up
 
-              echo "== Updating migration version status ConfigMap =="
-              VERSION=$(ls /work/migrations | sort -n | tail -n1 | cut -d'_' -f1)
+              echo "== Updating migration version ConfigMap =="
+              VERSION=$(ls /migrations | sort -n | tail -n1 | cut -d'_' -f1)
 
               kubectl patch configmap {{ include "app.fullname" . }}-migration-status \
                 --type merge -p "{\"data\":{\"lastApplied\":\"$VERSION\"}}"
 
-              echo "== Goose migration Job completed =="
+              echo "== Migrations completed =="
 
           env:
             - name: DB_PASS
@@ -70,9 +68,10 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.env.DB_PASS_FROM_SECRET }}
                   key: password
+
           volumeMounts:
             - name: migrations
-              mountPath: /work/migrations
+              mountPath: /migrations
 
         - name: cloud-sql-proxy
           image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.10.1
@@ -82,6 +81,8 @@ spec:
             - "--port=5432"
             - "--address=0.0.0.0"
             - "{{ .Values.db.instanceConnectionName }}"
+          securityContext:
+            runAsNonRoot: true
 
       volumes:
         - name: migration-src
