@@ -6,62 +6,70 @@ metadata:
   labels:
     app.kubernetes.io/name: {{ include "app.name" . }}
     app.kubernetes.io/managed-by: Helm
-
   annotations:
-    # --- ArgoCD Hook 설정 ---
-    argocd.argoproj.io/hook: Sync
-    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    # ArgoCD가 Job 때문에 OutOfSync 되지 않도록 방지
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    argocd.argoproj.io/hook: PostSync
 
 spec:
   backoffLimit: 1
-  ttlSecondsAfterFinished: 120
 
   template:
     spec:
       restartPolicy: Never
       serviceAccountName: app-db
 
+      initContainers:
+        - name: copy-migrations
+          image: alpine:3.19
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "Copying migrations..."
+              mkdir -p /migrations
+              cp -R /src/migrations/* /migrations/
+          volumeMounts:
+            - name: migration-src
+              mountPath: /src/migrations
+            - name: migrations
+              mountPath: /migrations
+          {{/* Chart 패키징 시 migrations 폴더 포함 */}}
+
       containers:
         - name: migrate
-          image: postgres:16-alpine
+          image: ghcr.io/pressly/goose:latest
           command: ["/bin/sh", "-c"]
           args:
             - |
               echo "== Waiting for Cloud SQL Proxy =="
 
-              until pg_isready -h 127.0.0.1 -p 5432 >/dev/null 2>&1; do
+              until pg_isready -h 127.0.0.1 -p 5432 -U "{{ .Values.env.DB_USER }}"; do
                 echo "Cloud SQL Proxy not ready, retrying..."
                 sleep 2
               done
 
               echo "== Cloud SQL Proxy is ready =="
-              echo "== Running migrations =="
+              echo "== Running migrations with goose =="
 
-              FILES=$(ls /migrations/*.sql 2>/dev/null)
+              export GOOSE_DRIVER=postgres
+              export GOOSE_DBSTRING="host=127.0.0.1 user={{ .Values.env.DB_USER }} password=$DB_PASS dbname={{ .Values.env.DB_NAME }} sslmode=disable"
 
-              if [ -z "$FILES" ]; then
-                echo "❗ No migration files found in /migrations"
-                exit 1
-              fi
+              goose up /migrations
 
-              for f in $FILES; do
-                echo "Applying migration: $f"
-                export PGPASSWORD="$DB_PASS"
-                psql -h 127.0.0.1 -p 5432 -U "$DB_USER" -d "$DB_NAME" -f "$f"
-              done
+              echo "== Updating migration version ConfigMap =="
+              VERSION=$(ls /migrations | sort -n | tail -n1 | cut -d'_' -f1)
+
+              kubectl patch configmap {{ include "app.fullname" . }}-migration-status \
+                --type merge -p "{\"data\":{\"lastApplied\":\"$VERSION\"}}"
 
               echo "== Migrations completed =="
 
           env:
-            - name: DB_USER
-              value: "{{ .Values.env.DB_USER }}"
             - name: DB_PASS
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.env.DB_PASS_FROM_SECRET }}
                   key: password
-            - name: DB_NAME
-              value: "{{ .Values.env.DB_NAME }}"
 
           volumeMounts:
             - name: migrations
@@ -79,8 +87,9 @@ spec:
             runAsNonRoot: true
 
       volumes:
-        - name: migrations
+        - name: migration-src
           configMap:
             name: {{ include "app.fullname" . }}-migrations
-
+        - name: migrations
+          emptyDir: {}
 {{- end }}
