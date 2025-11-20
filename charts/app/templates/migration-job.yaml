@@ -7,13 +7,11 @@ metadata:
     app.kubernetes.io/name: {{ include "app.name" . }}
     app.kubernetes.io/managed-by: Helm
   annotations:
-    # ArgoCD가 Job 때문에 OutOfSync 되지 않도록 방지
-    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
     argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 
 spec:
   backoffLimit: 1
-
   template:
     spec:
       restartPolicy: Never
@@ -25,44 +23,46 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
-              echo "Copying migrations..."
-              mkdir -p /migrations
-              cp -R /src/migrations/* /migrations/
+              echo "[INIT] Copying migrations..."
+              mkdir -p /work/migrations
+              cp -R /src/* /work/migrations/
           volumeMounts:
             - name: migration-src
-              mountPath: /src/migrations
+              mountPath: /src
             - name: migrations
-              mountPath: /migrations
-          {{/* Chart 패키징 시 migrations 폴더 포함 */}}
+              mountPath: /work/migrations
 
       containers:
         - name: migrate
-          image: ghcr.io/pressly/goose:latest
+          image: alpine:3.19
           command: ["/bin/sh", "-c"]
           args:
             - |
-              echo "== Waiting for Cloud SQL Proxy =="
+              echo "== Installing goose =="
+              apk add --no-cache curl ca-certificates postgresql-client
+              curl -L https://github.com/pressly/goose/releases/download/v3.17.0/goose_linux_x86_64 -o /usr/local/bin/goose
+              chmod +x /usr/local/bin/goose
 
+              echo "== Waiting for Cloud SQL Proxy =="
               until pg_isready -h 127.0.0.1 -p 5432 -U "{{ .Values.env.DB_USER }}"; do
-                echo "Cloud SQL Proxy not ready, retrying..."
+                echo "Proxy not ready..."
                 sleep 2
               done
 
-              echo "== Cloud SQL Proxy is ready =="
-              echo "== Running migrations with goose =="
+              echo "== Running migrations with Goose =="
 
               export GOOSE_DRIVER=postgres
               export GOOSE_DBSTRING="host=127.0.0.1 user={{ .Values.env.DB_USER }} password=$DB_PASS dbname={{ .Values.env.DB_NAME }} sslmode=disable"
 
-              goose up /migrations
+              goose -dir /work/migrations up
 
-              echo "== Updating migration version ConfigMap =="
-              VERSION=$(ls /migrations | sort -n | tail -n1 | cut -d'_' -f1)
+              echo "== Updating migration version status ConfigMap =="
+              VERSION=$(ls /work/migrations | sort -n | tail -n1 | cut -d'_' -f1)
 
               kubectl patch configmap {{ include "app.fullname" . }}-migration-status \
                 --type merge -p "{\"data\":{\"lastApplied\":\"$VERSION\"}}"
 
-              echo "== Migrations completed =="
+              echo "== Goose migration Job completed =="
 
           env:
             - name: DB_PASS
@@ -70,10 +70,9 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.env.DB_PASS_FROM_SECRET }}
                   key: password
-
           volumeMounts:
             - name: migrations
-              mountPath: /migrations
+              mountPath: /work/migrations
 
         - name: cloud-sql-proxy
           image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.10.1
@@ -83,8 +82,6 @@ spec:
             - "--port=5432"
             - "--address=0.0.0.0"
             - "{{ .Values.db.instanceConnectionName }}"
-          securityContext:
-            runAsNonRoot: true
 
       volumes:
         - name: migration-src
