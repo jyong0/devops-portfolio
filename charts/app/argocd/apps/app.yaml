@@ -9,6 +9,13 @@ metadata:
 spec:
   project: default
 
+  ignoreDifferences:
+    - kind: ConfigMap
+      name: app-migration-status
+      namespace: default
+      jsonPointers:
+        - /data/lastApplied
+
   source:
     repoURL: https://github.com/jyong0/devops-portfolio.git
     targetRevision: main
