@@ -1,2 +1,6 @@
+-- +goose Up
 ALTER TABLE users
-ADD COLUMN IF NOT EXISTS age INT;
+ADD COLUMN age INT;
+
+-- +goose Down
+-- NO OP
