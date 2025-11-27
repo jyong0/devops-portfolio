@@ -7,7 +7,8 @@ metadata:
     app.kubernetes.io/name: {{ include "app.name" . }}
     app.kubernetes.io/managed-by: Helm
   annotations:
-    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 
 spec:
@@ -37,30 +38,22 @@ spec:
         - name: migrate
           image: mattes/goose:latest
           command: ["/bin/sh", "-c"]
-          args:
-            - |
-              echo "== Waiting for Cloud SQL Proxy =="
+          args: |
+            echo "== Waiting for Cloud SQL Proxy =="
+            until pg_isready -h 127.0.0.1 -p 5432 -U "{{ .Values.env.DB_USER }}"; do
+              echo "Cloud SQL Proxy not ready, retrying..."
+              sleep 2
+            done  
 
-              until pg_isready -h 127.0.0.1 -p 5432 -U "{{ .Values.env.DB_USER }}"; do
-                echo "Cloud SQL Proxy not ready, retrying..."
-                sleep 2
-              done
+            echo "== Cloud SQL Proxy is ready =="
 
-              echo "== Cloud SQL Proxy is ready =="
+            export GOOSE_DRIVER=postgres
+            export GOOSE_DBSTRING="host=127.0.0.1 user={{ .Values.env.DB_USER }} password=$DB_PASS dbname={{ .Values.env.DB_NAME }} sslmode=disable"
 
-              export GOOSE_DRIVER=postgres
-              export GOOSE_DBSTRING="host=127.0.0.1 user={{ .Values.env.DB_USER }} password=$DB_PASS dbname={{ .Values.env.DB_NAME }} sslmode=disable"
+            echo "== Running migrations with goose =="
+            goose -dir /migrations up
 
-              echo "== Running migrations with goose =="
-              goose -dir /migrations up
-
-              echo "== Updating migration version ConfigMap =="
-              VERSION=$(ls /migrations | sort -n | tail -n1 | cut -d'_' -f1)
-
-              kubectl patch configmap {{ include "app.fullname" . }}-migration-status \
-                --type merge -p "{\"data\":{\"lastApplied\":\"$VERSION\"}}"
-
-              echo "== Migrations completed =="
+            echo "== Migrations completed =="
 
           env:
             - name: DB_PASS
@@ -68,7 +61,6 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.env.DB_PASS_FROM_SECRET }}
                   key: password
-
           volumeMounts:
             - name: migrations
               mountPath: /migrations
