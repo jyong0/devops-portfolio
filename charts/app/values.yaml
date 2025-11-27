@@ -2,7 +2,7 @@ replicaCount: 2
 
 migration:
   jobName: "app-migration-v2"
-  enabled: true
+  enabled: false
 
 image:
   repository: docker.io/comrry/devops
