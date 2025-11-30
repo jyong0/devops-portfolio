@@ -35,7 +35,7 @@ spec:
 
       containers:
         - name: migrate
-          image: ghcr.io/mattes/goose:latest
+          image: gomicro/goose:latest
           command: ["/bin/sh", "-c"]
           args:
             - |
