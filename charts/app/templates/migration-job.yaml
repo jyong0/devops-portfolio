@@ -8,12 +8,11 @@ metadata:
     app.kubernetes.io/managed-by: Helm
   annotations:
     argocd.argoproj.io/hook: PreSync
-    argocd.argoproj.io/hook-delete-policy: HookSucceeded,BeforeHookCreation
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 
 spec:
   backoffLimit: 1
-
   template:
     spec:
       restartPolicy: Never
@@ -36,28 +35,23 @@ spec:
 
       containers:
         - name: migrate
-          image: mattes/goose:latest
+          image: ghcr.io/mattes/goose:latest
           command: ["/bin/sh", "-c"]
-          args: |
-            echo "== Waiting for Cloud SQL Proxy =="
-            until pg_isready -h 127.0.0.1 -p 5432; do
-              echo "Cloud SQL Proxy not ready..."
-              sleep 2
-            done
+          args:
+            - |
+              echo "Waiting for Cloud SQL Proxy..."
+              until pg_isready -h 127.0.0.1 -p 5432 -U "{{ .Values.env.DB_USER }}"; do
+                echo "Proxy not ready, retrying..."
+                sleep 2
+              done
+              echo "Proxy ready."
 
-            echo "== Running migrations with goose =="
-            export GOOSE_DRIVER=postgres
-            export GOOSE_DBSTRING="host=127.0.0.1 user={{ .Values.env.DB_USER }} password=$DB_PASS dbname={{ .Values.env.DB_NAME }} sslmode=disable"
+              export GOOSE_DRIVER=postgres
+              export GOOSE_DBSTRING="host=127.0.0.1 user={{ .Values.env.DB_USER }} password=$DB_PASS dbname={{ .Values.env.DB_NAME }} sslmode=disable"
 
-            goose -dir /migrations up
+              goose -dir /migrations up
 
-            echo "== Updating version ConfigMap =="
-            VERSION=$(ls /migrations | sort -n | tail -n1 | cut -d'_' -f1)
-
-            kubectl patch configmap {{ include "app.fullname" . }}-migration-status \
-              --type merge -p "{\"data\":{\"lastApplied\":\"$VERSION\"}}"
-
-            echo "== Done =="
+              echo "Migration complete."
 
           env:
             - name: DB_PASS
@@ -65,7 +59,6 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.env.DB_PASS_FROM_SECRET }}
                   key: password
-
           volumeMounts:
             - name: migrations
               mountPath: /migrations
@@ -75,9 +68,11 @@ spec:
           args:
             - "--auto-iam-authn"
             - "--private-ip"
-            - "--port=5432"
             - "--address=0.0.0.0"
+            - "--port=5432"
             - "{{ .Values.db.instanceConnectionName }}"
+          securityContext:
+            runAsNonRoot: true
 
       volumes:
         - name: migration-src
