@@ -1,10 +1,5 @@
-FROM postgres:16-alpine
-
-# 필요한 패키지 설치
-RUN apk add --no-cache curl bash
-
-# goose 설치
-RUN curl -fsSL https://raw.githubusercontent.com/pressly/goose/master/install.sh | sh
-
-# goose 와 psql 모두 포함됨
-ENTRYPOINT [ "bash", "-c" ]
+FROM alpine:3.19
+RUN apk add --no-cache bash curl postgresql-client
+RUN curl -L https://github.com/pressly/goose/releases/download/v3.18.0/goose_linux_x86_64 \
+    -o /usr/local/bin/goose && chmod +x /usr/local/bin/goose
+ENTRYPOINT ["goose"]
