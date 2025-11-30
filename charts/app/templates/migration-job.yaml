@@ -8,33 +8,27 @@ metadata:
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/managed-by: Helm
   annotations:
-    # PreSync Hook: 매 Sync 전에 딱 한 번 실행
     argocd.argoproj.io/hook: PreSync
-    # Hook Job은 성공하면/다음 Sync 전에 자동 삭제
     argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
-    # Hook 리소스는 ArgoCD가 DryRun 에러로 취급하지 않게
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 
 spec:
   backoffLimit: 1
-
   template:
     spec:
       restartPolicy: Never
       serviceAccountName: app-db
 
-      # 1) SQL 파일을 ConfigMap → emptyDir 로 복사
       initContainers:
         - name: copy-migrations
           image: alpine:3.19
-          command: ["/bin/sh", "-c"]
+          command: ["/bin/sh","-c"]
           args:
             - |
-              set -euo pipefail
-              echo "Copying migrations from /src to /migrations..."
+              set -e
+              echo "Copy migrations..."
               mkdir -p /migrations
-              cp -R /src/* /migrations/ || true
-              echo "Migrations in /migrations:"
+              cp -R /src/* /migrations/
               ls -l /migrations
           volumeMounts:
             - name: migration-src
@@ -43,55 +37,34 @@ spec:
               mountPath: /migrations
 
       containers:
-        # 2) 실제 마이그레이션 실행 (psql)
         - name: migrate
           image: postgres:16-alpine
-          command: ["/bin/sh", "-c"]
+          command: ["/bin/sh","-c"]
           args:
             - |
-              set -euo pipefail
+              set -e
 
-              echo "== Waiting for Cloud SQL Proxy on 127.0.0.1:5432 =="
-
-              # Cloud SQL Proxy가 뜰 때까지 기다리기 (최대 60초)
+              echo "== Waiting for Cloud SQL Proxy on 127.0.0.1 =="
               for i in $(seq 1 30); do
                 if pg_isready -h 127.0.0.1 -p 5432 -U "$DB_USER" >/dev/null 2>&1; then
-                  echo "Cloud SQL Proxy is ready."
                   break
                 fi
-                echo "Cloud SQL Proxy not ready, retrying... (${i}/30)"
+                echo "Cloud SQL Proxy not ready... ($i/30)"
                 sleep 2
               done
 
-              if ! pg_isready -h 127.0.0.1 -p 5432 -U "$DB_USER" >/dev/null 2>&1; then
-                echo "Cloud SQL Proxy not ready after 60s, failing migration."
-                exit 1
-              fi
-
-              echo "== Running migrations =="
-
+              export PGPASSWORD="$DB_PASS"
               FILES=$(ls /migrations/*.sql 2>/dev/null || true)
 
               if [ -z "$FILES" ]; then
-                echo "No migration files found in /migrations"
+                echo "No migration files found"
                 exit 0
               fi
 
-              export PGPASSWORD="$DB_PASS"
-
               for f in $FILES; do
-                echo "Applying migration: $f"
-                psql \
-                  -h 127.0.0.1 \
-                  -p 5432 \
-                  -U "$DB_USER" \
-                  -d "$DB_NAME" \
-                  -v ON_ERROR_STOP=1 \
-                  -f "$f"
+                echo "Applying $f"
+                psql -h 127.0.0.1 -p 5432 -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 -f "$f"
               done
-
-              echo "== Migrations completed successfully =="
-
           env:
             - name: DB_USER
               value: {{ .Values.env.DB_USER | quote }}
@@ -102,12 +75,10 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.env.DB_PASS_FROM_SECRET }}
                   key: password
-
           volumeMounts:
             - name: migrations
               mountPath: /migrations
 
-        # 3) Cloud SQL Proxy Sidecar
         - name: cloud-sql-proxy
           image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.10.1
           args:
@@ -120,11 +91,9 @@ spec:
             runAsNonRoot: true
 
       volumes:
-        # ConfigMap → /src (initContainer에서 복사)
         - name: migration-src
           configMap:
             name: {{ include "app.fullname" . }}-migrations
-        # 복사된 파일이 실제로 사용되는 emptyDir
         - name: migrations
           emptyDir: {}
 {{- end }}
