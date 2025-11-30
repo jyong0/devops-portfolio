@@ -1,8 +1,8 @@
 replicaCount: 2
 
 migration:
-  jobName: "app-migration-v2"
-  enabled: false
+  enabled: true
+  jobName: "app-migration"
 
 image:
   repository: docker.io/comrry/devops
@@ -17,9 +17,6 @@ ingress:
   enabled: false
 
 db:
-  user: "app"
-  name: "appdb"
-  password: ""
   instanceConnectionName: "storied-reserve-473208-t1:asia-northeast3:devops-postgres"
 
 projectId: "storied-reserve-473208-t1"

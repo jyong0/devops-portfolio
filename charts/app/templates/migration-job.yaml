@@ -2,13 +2,13 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ .Values.migration.jobName | default "app-migration" }}
+  name: {{ .Values.migration.jobName }}
   labels:
     app.kubernetes.io/name: {{ include "app.name" . }}
     app.kubernetes.io/managed-by: Helm
   annotations:
     argocd.argoproj.io/hook: PreSync
-    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded,BeforeHookCreation
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 
 spec:
@@ -40,20 +40,24 @@ spec:
           command: ["/bin/sh", "-c"]
           args: |
             echo "== Waiting for Cloud SQL Proxy =="
-            until pg_isready -h 127.0.0.1 -p 5432 -U "{{ .Values.env.DB_USER }}"; do
-              echo "Cloud SQL Proxy not ready, retrying..."
+            until pg_isready -h 127.0.0.1 -p 5432; do
+              echo "Cloud SQL Proxy not ready..."
               sleep 2
-            done  
+            done
 
-            echo "== Cloud SQL Proxy is ready =="
-
+            echo "== Running migrations with goose =="
             export GOOSE_DRIVER=postgres
             export GOOSE_DBSTRING="host=127.0.0.1 user={{ .Values.env.DB_USER }} password=$DB_PASS dbname={{ .Values.env.DB_NAME }} sslmode=disable"
 
-            echo "== Running migrations with goose =="
             goose -dir /migrations up
 
-            echo "== Migrations completed =="
+            echo "== Updating version ConfigMap =="
+            VERSION=$(ls /migrations | sort -n | tail -n1 | cut -d'_' -f1)
+
+            kubectl patch configmap {{ include "app.fullname" . }}-migration-status \
+              --type merge -p "{\"data\":{\"lastApplied\":\"$VERSION\"}}"
+
+            echo "== Done =="
 
           env:
             - name: DB_PASS
@@ -61,6 +65,7 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.env.DB_PASS_FROM_SECRET }}
                   key: password
+
           volumeMounts:
             - name: migrations
               mountPath: /migrations
@@ -73,8 +78,6 @@ spec:
             - "--port=5432"
             - "--address=0.0.0.0"
             - "{{ .Values.db.instanceConnectionName }}"
-          securityContext:
-            runAsNonRoot: true
 
       volumes:
         - name: migration-src

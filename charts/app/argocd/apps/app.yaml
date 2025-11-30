@@ -4,8 +4,12 @@ metadata:
   name: app
   namespace: argocd
   annotations:
+    # --- Image Updater 설정 ---
     argocd-image-updater.argoproj.io/image-list: app=docker.io/comrry/devops
-    argocd-image-updater.argoproj.io/update-strategy: latest
+    argocd-image-updater.argoproj.io/app.allow-tags: latest
+    argocd-image-updater.argoproj.io/app.update-strategy: digest
+    argocd-image-updater.argoproj.io/write-back-method: none
+    argocd-image-updater.argoproj.io/ignore-tags: "false"
 
 spec:
   project: default
@@ -14,6 +18,7 @@ spec:
     repoURL: https://github.com/jyong0/devops-portfolio.git
     targetRevision: main
     path: charts/app
+
     helm:
       releaseName: app
       values: |
@@ -29,3 +34,5 @@ spec:
     automated:
       prune: true
       selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
