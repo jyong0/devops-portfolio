@@ -91,7 +91,7 @@ spec:
       volumes:
         - name: migration-src
           configMap:
-            name: {{ include "app.fullname" . }}-migrations
+            name: app-migrations   # 🔥 고정
         - name: migrations
           emptyDir: {}
 {{- end }}
