@@ -19,6 +19,7 @@ ingress:
 db:
   user: "app"
   name: "appdb"
+  password: "" # 사용 안 함 (Secret 사용)
   instanceConnectionName: "storied-reserve-473208-t1:asia-northeast3:devops-postgres"
 
 projectId: "storied-reserve-473208-t1"

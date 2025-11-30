@@ -2,22 +2,27 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ .Values.migration.jobName }}
+  name: {{ .Values.migration.jobName | default "app-migration" }}
   labels:
     app.kubernetes.io/name: {{ include "app.name" . }}
     app.kubernetes.io/managed-by: Helm
   annotations:
+    # ✅ PreSync Hook: 앱 배포 전에 DB 마이그레이션 실행
     argocd.argoproj.io/hook: PreSync
+    # ✅ Hook Job은 성공/재생성 전에 자동 삭제 (ArgoCD가 계속 추적하지 않도록)
     argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
+    # ✅ Job 리소스 DryRun 스킵 (Hook 리소스 특성 때문)
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 
 spec:
   backoffLimit: 1
+
   template:
     spec:
       restartPolicy: Never
       serviceAccountName: app-db
 
+      # 1) migrations ConfigMap → /migrations 로 복사
       initContainers:
         - name: copy-migrations
           image: alpine:3.19
@@ -27,6 +32,7 @@ spec:
               echo "Copying migrations..."
               mkdir -p /migrations
               cp -R /src/* /migrations/
+              ls -l /migrations
           volumeMounts:
             - name: migration-src
               mountPath: /src
@@ -34,24 +40,37 @@ spec:
               mountPath: /migrations
 
       containers:
+        # 2) goose 컨테이너: DB 마이그레이션 실행
         - name: migrate
-          image: gomicro/goose:latest
-          command: ["/bin/sh", "-c"]
+          image: docker.io/gomicro/goose:latest
+          command:
+            - /bin/sh
+            - -c
           args:
             - |
-              echo "Waiting for Cloud SQL Proxy..."
+              echo "== Waiting for Cloud SQL Proxy =="
+
+              # 최대 30번(=60초)까지만 대기하고 실패
+              ATTEMPTS=0
               until pg_isready -h 127.0.0.1 -p 5432 -U "{{ .Values.env.DB_USER }}"; do
-                echo "Proxy not ready, retrying..."
+                ATTEMPTS=$((ATTEMPTS + 1))
+                if [ "$ATTEMPTS" -ge 30 ]; then
+                  echo "Cloud SQL Proxy not ready after 60s, failing migration Job"
+                  exit 1
+                fi
+                echo "Cloud SQL Proxy not ready, retrying... ($ATTEMPTS/30)"
                 sleep 2
               done
-              echo "Proxy ready."
+
+              echo "== Cloud SQL Proxy is ready =="
 
               export GOOSE_DRIVER=postgres
               export GOOSE_DBSTRING="host=127.0.0.1 user={{ .Values.env.DB_USER }} password=$DB_PASS dbname={{ .Values.env.DB_NAME }} sslmode=disable"
 
+              echo "== Running migrations with goose =="
               goose -dir /migrations up
 
-              echo "Migration complete."
+              echo "== Migrations completed =="
 
           env:
             - name: DB_PASS
@@ -59,17 +78,19 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.env.DB_PASS_FROM_SECRET }}
                   key: password
+
           volumeMounts:
             - name: migrations
               mountPath: /migrations
 
+        # 3) Cloud SQL Proxy: Private IP로 Cloud SQL 연결
         - name: cloud-sql-proxy
           image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.10.1
           args:
             - "--auto-iam-authn"
             - "--private-ip"
-            - "--address=0.0.0.0"
             - "--port=5432"
+            - "--address=0.0.0.0"
             - "{{ .Values.db.instanceConnectionName }}"
           securityContext:
             runAsNonRoot: true

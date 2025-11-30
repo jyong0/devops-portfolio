@@ -4,18 +4,11 @@ metadata:
   name: app
   namespace: argocd
   annotations:
-    argocd-image-updater.argoproj.io/image-list: app=docker.io/comrry/devops
+    # Argo CD Image Updater 설정
+    argocd-image-updater.argoproj.io/image-list: app=docker.io/comrry/devops:latest
     argocd-image-updater.argoproj.io/update-strategy: latest
-
 spec:
   project: default
-
-  ignoreDifferences:
-    - kind: ConfigMap
-      name: app-migration-status
-      namespace: default
-      jsonPointers:
-        - /data/lastApplied
 
   source:
     repoURL: https://github.com/jyong0/devops-portfolio.git
@@ -31,6 +24,16 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: default
+
+  # 🔥 Image Updater 때문에 Deployment image 태그가 바뀌어도
+  #    OutOfSync로 보지 않도록 ignoreDifferences 추가하는 것도 고려 가능
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      name: app
+      namespace: default
+      jsonPointers:
+        - /spec/template/spec/containers/0/image
 
   syncPolicy:
     automated:
