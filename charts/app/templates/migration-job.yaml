@@ -42,7 +42,7 @@ spec:
       containers:
         # 2) goose 컨테이너: DB 마이그레이션 실행
         - name: migrate
-          image: docker.io/gomicro/goose:latest
+          image: docker.io/comrry/goose:latest
           command:
             - /bin/sh
             - -c
