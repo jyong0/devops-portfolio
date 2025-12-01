@@ -16,6 +16,9 @@ spec:
       labels:
         {{- include "app.selectorLabels" . | nindent 8 }}
     spec:
+      # 🔥 Job에서 쓰던 것과 같은 SA 사용 (중요)
+      serviceAccountName: app-db
+
       imagePullSecrets:
         - name: dockerhub-secret
 
@@ -32,7 +35,7 @@ spec:
             - name: APP_PORT
               value: "{{ .Values.env.APP_PORT }}"
             - name: DB_HOST
-              value: "127.0.0.1"                   # 반드시 localhost
+              value: "127.0.0.1"
             - name: DB_PORT
               value: "5432"
             - name: DB_USER
@@ -51,21 +54,18 @@ spec:
 
         # =============================
         #   Cloud SQL Proxy Sidecar
-        #   (강화된 안정 버전)
         # =============================
         - name: cloud-sql-proxy
           image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.4.0
-          command: ["/cloud-sql-proxy"]          # Entrypoint override (중요)
+          command: ["/cloud-sql-proxy"]
           args:
             - "--private-ip"
             - "--auto-iam-authn"
-            - "--port=5432"                      # Proxy listens on 5432
-            - "--address=127.0.0.1"              # localhost만 listen
+            - "--port=5432"
+            - "--address=127.0.0.1"
             - "{{ .Values.db.instanceConnectionName }}"
           securityContext:
             runAsNonRoot: true
-
-          # Proxy가 항상 살아있도록
           livenessProbe:
             tcpSocket:
               port: 5432
