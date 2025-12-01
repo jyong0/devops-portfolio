@@ -17,17 +17,19 @@ func NewHandler(userService *service.UserService) *Handler {
 }
 
 func (h *Handler) RootCheck(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"status": "ok v5"})
+	c.JSON(http.StatusOK, gin.H{"status": "ok v6"})
 }
 
 func (h *Handler) Health(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"status": "ok v5"})
+	c.JSON(http.StatusOK, gin.H{"status": "ok v6"})
 }
 
 func (h *Handler) CreateUser(c *gin.Context) {
+	// 🔥 age 추가
 	var req struct {
 		Name  string `json:"name"`
 		Email string `json:"email"`
+		Age   *int   `json:"age"` // nullable supported
 	}
 
 	if err := c.BindJSON(&req); err != nil {
@@ -35,7 +37,7 @@ func (h *Handler) CreateUser(c *gin.Context) {
 		return
 	}
 
-	err := h.userService.CreateUser(context.Background(), req.Name, req.Email)
+	err := h.userService.CreateUser(context.Background(), req.Name, req.Email, req.Age)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
