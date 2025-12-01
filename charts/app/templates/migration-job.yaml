@@ -26,12 +26,13 @@ spec:
               echo "Copy migrations..."
               mkdir -p /migrations
               cp -R /src/* /migrations/
+              echo "== InitContainer: copied files =="
               ls -l /migrations
           volumeMounts:
             - name: migration-src
               mountPath: /src
             - name: migrations
-              mountPath: /files/migrations
+              mountPath: /migrations
 
       containers:
         - name: migrate
@@ -44,19 +45,32 @@ spec:
               echo "== Waiting for Cloud SQL Proxy on 127.0.0.1 =="
               for i in $(seq 1 30); do
                 if pg_isready -h 127.0.0.1 -p 5432 -U "$DB_USER" >/dev/null 2>&1; then
+                  echo "Cloud SQL Proxy is ready"
                   break
                 fi
                 echo "Cloud SQL Proxy not ready... ($i/30)"
                 sleep 2
               done
 
-              export PGPASSWORD="$DB_PASS"
+              echo "== Checking /migrations directory =="
+              for i in $(seq 1 10); do
+                if [ -d /migrations ] && [ -n "$(ls -A /migrations 2>/dev/null)" ]; then
+                  echo "/migrations is ready:"
+                  ls -l /migrations
+                  break
+                fi
+                echo "/migrations is empty... waiting ($i/10)"
+                sleep 1
+              done
+
               FILES=$(ls /migrations/*.sql 2>/dev/null || true)
 
               if [ -z "$FILES" ]; then
-                echo "No migration files found"
+                echo "No migration files found after waiting"
                 exit 0
               fi
+
+              export PGPASSWORD="$DB_PASS"
 
               for f in $FILES; do
                 echo "Applying $f"
