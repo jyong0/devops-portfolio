@@ -25,10 +25,11 @@ spec:
           args:
             - |
               set -e
-              apk add --no-cache coreutils
               echo "Copy migrations..."
-              mkdir -p /migrations
-              cp -a /src/. /migrations/
+
+              # cp symlink follow
+              cp -RL /src/* /migrations/
+
               echo "== InitContainer: copied files =="
               ls -l /migrations
           volumeMounts:
