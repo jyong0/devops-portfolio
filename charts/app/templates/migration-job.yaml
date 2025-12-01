@@ -10,6 +10,7 @@ metadata:
 
 spec:
   backoffLimit: 1
+
   template:
     spec:
       restartPolicy: Never
@@ -18,13 +19,13 @@ spec:
       initContainers:
         - name: copy-migrations
           image: alpine:3.19
-          command: ["/bin/sh", "-c"]
+          command: ["/bin/sh","-c"]
           args:
             - |
               set -e
               echo "Copy migrations..."
               mkdir -p /migrations
-              cp -R /src/* /migrations/ || true
+              cp -R /src/* /migrations/
               ls -l /migrations
           volumeMounts:
             - name: migration-src
@@ -35,15 +36,14 @@ spec:
       containers:
         - name: migrate
           image: postgres:16-alpine
-          command: ["/bin/sh", "-c"]
+          command: ["/bin/sh","-c"]
           args:
             - |
               set -e
-              echo "== Waiting for Cloud SQL Proxy on 127.0.0.1 =="
 
+              echo "== Waiting for Cloud SQL Proxy on 127.0.0.1 =="
               for i in $(seq 1 30); do
                 if pg_isready -h 127.0.0.1 -p 5432 -U "$DB_USER" >/dev/null 2>&1; then
-                  echo "Proxy ready"
                   break
                 fi
                 echo "Cloud SQL Proxy not ready... ($i/30)"
@@ -63,22 +63,6 @@ spec:
                 psql -h 127.0.0.1 -p 5432 -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 -f "$f"
               done
 
-              echo "Done."
-
-          env:
-            - name: DB_USER
-              value: {{ .Values.env.DB_USER | quote }}
-            - name: DB_NAME
-              value: {{ .Values.env.DB_NAME | quote }}
-            - name: DB_PASS
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.env.DB_PASS_FROM_SECRET }}
-                  key: password
-          volumeMounts:
-            - name: migrations
-              mountPath: /migrations
-
         - name: cloud-sql-proxy
           image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.10.1
           args:
@@ -87,11 +71,13 @@ spec:
             - "--port=5432"
             - "--address=0.0.0.0"
             - "{{ .Values.db.instanceConnectionName }}"
+          securityContext:
+            runAsNonRoot: true
 
       volumes:
         - name: migration-src
           configMap:
-            name: {{ include "app.fullname" . }}-migrations
+            name: app-migrations
         - name: migrations
           emptyDir: {}
 {{- end }}
