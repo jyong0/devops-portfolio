@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 
 	"github.com/go-redis/redis/v8"
@@ -13,7 +14,7 @@ type User struct {
 	ID    int    `json:"id"`
 	Name  string `json:"name"`
 	Email string `json:"email"`
-	Age   int    `json:"age,omitempty"`
+	Age   int    `json:"age"`
 }
 
 type UserService struct {
@@ -34,18 +35,35 @@ func (s *UserService) CreateUser(ctx context.Context, name, email string, age in
 }
 
 func (s *UserService) GetUser(ctx context.Context, id string) (*User, error) {
-	// 🔹 CACHE CHECK
-	cacheData, err := s.rdb.Get(ctx, "user:"+id).Result()
+	cacheKey := "user:" + id
+
+	// ------------------------------------
+	// 🔹 1) 캐시 조회
+	// ------------------------------------
+	cacheData, err := s.rdb.Get(ctx, cacheKey).Result()
 	if err == nil {
 		log.Println("[CACHE HIT]")
-		var u User
-		json.Unmarshal([]byte(cacheData), &u)
-		return &u, nil
+
+		var cached User
+		if jsonErr := json.Unmarshal([]byte(cacheData), &cached); jsonErr == nil {
+			// 🔥 stale 캐시 감지 (age=0이면 이전 구조일 수 있음)
+			if cached.Age != 0 {
+				return &cached, nil
+			}
+
+			log.Println("[STALE CACHE] age=0 → DB에서 다시 조회합니다.")
+		} else {
+			log.Println("[CACHE ERROR] JSON parse 실패 → DB 조회로 이동")
+		}
+	} else {
+		log.Println("[CACHE MISS]")
 	}
 
-	log.Println("[CACHE MISS] Fetching from DB...")
+	// ------------------------------------
+	// 🔹 2) DB 조회
+	// ------------------------------------
+	log.Println("[DB QUERY] SELECT ... FROM users WHERE id =", id)
 
-	// 🔹 DB 조회에서 age 포함
 	row := s.db.QueryRow(ctx,
 		`SELECT id, name, email, age FROM users WHERE id=$1`,
 		id,
@@ -54,12 +72,19 @@ func (s *UserService) GetUser(ctx context.Context, id string) (*User, error) {
 	var u User
 	err = row.Scan(&u.ID, &u.Name, &u.Email, &u.Age)
 	if err != nil {
-		return nil, err
+		log.Printf("[DB ERROR] row.Scan failed: %v\n", err)
+		return nil, fmt.Errorf("db error: %w", err)
 	}
 
-	// 🔹 CACHE 저장
+	log.Printf("[DB RESULT] %+v\n", u)
+
+	// ------------------------------------
+	// 🔹 3) DB 결과 캐싱
+	// ------------------------------------
 	jsonData, _ := json.Marshal(u)
-	s.rdb.Set(ctx, "user:"+id, string(jsonData), 0)
+	s.rdb.Set(ctx, cacheKey, string(jsonData), 0)
+
+	log.Println("[CACHE SAVE] user cached:", cacheKey)
 
 	return &u, nil
 }
