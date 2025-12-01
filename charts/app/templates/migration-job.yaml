@@ -77,7 +77,7 @@ spec:
       volumes:
         - name: migration-src
           configMap:
-            name: app-migrations
+            name: {{ include "app.fullname" . }}-migrations
         - name: migrations
           emptyDir: {}
 {{- end }}
