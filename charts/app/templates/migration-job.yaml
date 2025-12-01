@@ -15,7 +15,9 @@ spec:
       restartPolicy: Never
       serviceAccountName: app-db
 
-      # 1) ConfigMap(app-migrations) → /src 에 마운트된 걸 /migrations 로 복사
+      # -------------------------------------------------------------
+      # INIT CONTAINER: ConfigMap(app-migrations) → /migrations 복사
+      # -------------------------------------------------------------
       initContainers:
         - name: copy-migrations
           image: alpine:3.19
@@ -23,13 +25,13 @@ spec:
           args:
             - |
               set -e
-              echo "Copy migrations..."
+              echo "Copying migrations..."
               mkdir -p /migrations
 
-              # ConfigMap은 symlink 구조라서 -R -L로 따라가면서 실제 파일을 복사
+              # ConfigMap symlink(..data/*) 따라가서 실제 파일 복사
               cp -RL /src/* /migrations/
 
-              echo "== InitContainer: copied files =="
+              echo "== InitContainer copied files =="
               ls -l /migrations
           volumeMounts:
             - name: migration-src
@@ -37,6 +39,9 @@ spec:
             - name: migrations
               mountPath: /migrations
 
+      # -------------------------------------------------------------
+      # MAIN CONTAINER: migration 수행
+      # -------------------------------------------------------------
       containers:
         - name: migrate
           image: postgres:16-alpine
@@ -44,14 +49,16 @@ spec:
           env:
             - name: DB_USER
               value: {{ .Values.db.user | quote }}
+
             - name: DB_NAME
               value: {{ .Values.db.name | quote }}
-            # Secret(app-db-secret)에서 password 읽기
+
             - name: DB_PASS
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.env.DB_PASS_FROM_SECRET | quote }}
                   key: password
+
             - name: DB_HOST
               value: "127.0.0.1"
             - name: DB_PORT
@@ -74,26 +81,18 @@ spec:
               done
 
               echo "== Checking /migrations directory =="
-              for i in $(seq 1 10); do
-                if [ -d /migrations ] && [ -n "$(ls -A /migrations 2>/dev/null)" ]; then
-                  echo "/migrations is ready:"
-                  ls -l /migrations
-                  break
-                fi
-                echo "/migrations is empty... waiting ($i/10)"
-                sleep 1
-              done
+              ls -l /migrations || true
 
               FILES=$(ls /migrations/*.sql 2>/dev/null || true)
 
               if [ -z "$FILES" ]; then
-                echo "No migration files found after waiting"
+                echo "No migration files found"
                 exit 0
               fi
 
-              # psql 에서 사용할 패스워드 설정
               export PGPASSWORD="$DB_PASS"
 
+              echo "== Running migrations =="
               for f in $FILES; do
                 echo "Applying $f"
                 psql \
@@ -105,14 +104,29 @@ spec:
                   -f "$f"
               done
 
+              echo "== Migration completed =="
+              exit 0
+
+        # -------------------------------------------------------------
+        # CLOUD SQL PROXY SIDECAR (3초 대기 후 자동 종료 → Job 정상 종료)
+        # -------------------------------------------------------------
         - name: cloud-sql-proxy
           image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.10.1
+          command: ["/bin/sh","-c"]
           args:
-            - "--auto-iam-authn"
-            - "--private-ip"
-            - "--port=5432"
-            - "--address=0.0.0.0"
-            - "{{ .Values.db.instanceConnectionName }}"
+            - |
+              /cloud-sql-proxy \
+                --auto-iam-authn \
+                --private-ip \
+                --port=5432 \
+                --address=0.0.0.0 \
+                "{{ .Values.db.instanceConnectionName }}" &
+
+              # proxy 가 뜨는 데 필요한 최소 시간
+              sleep 10
+
+              # job 전체가 끝날 수 있도록 sidecar를 종료
+              exit 0
           securityContext:
             runAsNonRoot: true
 
@@ -120,6 +134,7 @@ spec:
         - name: migration-src
           configMap:
             name: {{ include "app.fullname" . }}-migrations
+
         - name: migrations
           emptyDir: {}
 {{- end }}
