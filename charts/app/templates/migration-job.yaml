@@ -31,7 +31,7 @@ spec:
             - name: migration-src
               mountPath: /src
             - name: migrations
-              mountPath: /migrations
+              mountPath: /files/migrations
 
       containers:
         - name: migrate
