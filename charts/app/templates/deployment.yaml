@@ -47,11 +47,12 @@ spec:
 
         # ✅ Cloud SQL Proxy Sidecar (DB 접속 담당)
         - name: cloud-sql-proxy
-          image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.10.1
+          image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.4.0
           args:
             - "--private-ip"
             - "--auto-iam-authn"
             - "--port=5432"
+            - "--address=127.0.0.1"        # 앱 컨테이너와 같은 NetNS 공유 → localhost 사용
             - "{{ .Values.db.instanceConnectionName }}"
           securityContext:
             runAsNonRoot: true
