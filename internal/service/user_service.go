@@ -13,7 +13,7 @@ type User struct {
 	ID    int    `json:"id"`
 	Name  string `json:"name"`
 	Email string `json:"email"`
-	Age   *int   `json:"age,omitempty"` // 🔥 age 추가 (nullable 가능성 대비 pointer)
+	Age   int    `json:"age,omitempty"`
 }
 
 type UserService struct {
