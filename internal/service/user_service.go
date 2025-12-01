@@ -25,7 +25,7 @@ func NewUserService(db *pgxpool.Pool, rdb *redis.Client) *UserService {
 	return &UserService{db: db, rdb: rdb}
 }
 
-func (s *UserService) CreateUser(ctx context.Context, name, email string, age *int) error {
+func (s *UserService) CreateUser(ctx context.Context, name, email string, age int) error {
 	_, err := s.db.Exec(ctx,
 		`INSERT INTO users (name, email, age) VALUES ($1, $2, $3)`,
 		name, email, age,

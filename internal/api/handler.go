@@ -29,7 +29,7 @@ func (h *Handler) CreateUser(c *gin.Context) {
 	var req struct {
 		Name  string `json:"name"`
 		Email string `json:"email"`
-		Age   *int   `json:"age"` // nullable supported
+		Age   int    `json:"age"`
 	}
 
 	if err := c.BindJSON(&req); err != nil {
